@@ -1,10 +1,15 @@
 import pygame
 import random
+import math
+
 
 pygame.init()
 
 WIDTH = 800
 HEIGHT = 600
+SHIP_WIDTH = 64
+SHIP_HEIGHT = 64
+
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 title = pygame.display.set_caption("Space Invaders")
@@ -15,23 +20,31 @@ enemy_img = pygame.image.load("outer-space-alien.png")
 bullet_img = pygame.image.load("favicon.png")
 
 
-playerX = 400 - 32
-playerY = (HEIGHT-50) - 32
+playerX = WIDTH // 2 - SHIP_WIDTH // 2
+playerY = HEIGHT - (SHIP_HEIGHT + 10)
+clock = pygame.time.Clock()
 
 
 class Bullet():
     
     def __init__(self, coordX, coordY):
-        self.coordX = coordX + 32
-        self.coordY = coordY + 32
-        self.deltaY = -0.5
+        self.coordX = coordX + 16
+        self.coordY = coordY + 16
+        self.deltaY = 4
+        self.hit = False
     
     def draw(self):
         screen.blit(bullet_img, (self.coordX, self.coordY))
     
     def move(self):
         self.coordY += self.deltaY
-    
+
+class EnemyBullet(Bullet):
+    def __init__(self, coordX, coordY):
+        self.coordX = coordX + 16
+        self.coordY = coordY + 16
+        self.deltaY = 4
+        self.hit = False  
 
 class Ship():
 
@@ -57,11 +70,11 @@ class Ship():
 
 class Enemy():
 
-
+    enemy_bullets = []
     def __init__(self):
         self.coordX = random.randint(0, WIDTH - 64)
         self.coordY = random.randint(64, HEIGHT//2)
-        self.deltaX = 0.2
+        self.deltaX = 2
         self.deltaY = 0
         self.alive = True
     
@@ -79,21 +92,26 @@ class Enemy():
             self.coordY += 5
         else:
             self.coordX += self.deltaX
+    
+    def shoot(self):
+        if random.randint(1, 200) == 1:
+            self.enemy_bullets.append(EnemyBullet(self.coordX, self.coordY))
+
+
+    
 
 
 def initialize_enemies(number_of_enemies):
     return [Enemy() for i in range(number_of_enemies)]
 
 def detect_colision(bullet, alien):
-    if bullet.coordX > alien.coordX + 20:
-        return False
-    if bullet.coordX < alien.coordX - 20:
-        return False
-    if bullet.coordY > alien.coordY + 5:
-        return False
-    if bullet.coordY < alien.coordY - 5:
-        return False
-    return True
+    alien_center_x = alien.coordX + 32
+    alien_center_y = alien.coordY + 32
+    bullet_center_x = bullet.coordX + 16
+    bullet_center_y = bullet.coordY + 16
+    distance = math.sqrt((alien_center_x - bullet_center_x)**2 + (alien_center_y - bullet_center_y)**2)
+    if distance < 32:
+        return True
         
 
 def main():
@@ -110,9 +128,9 @@ def main():
                 running = False
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_LEFT:
-                    playership.deltaX = -0.5
+                    playership.deltaX = -4
                 if event.key == pygame.K_RIGHT:
-                    playership.deltaX = 0.5
+                    playership.deltaX = 4
                 if event.key == pygame.K_SPACE:
                     playership.shoot()
             if event.type == pygame.KEYUP:
@@ -121,16 +139,24 @@ def main():
         playership.update_coords()
         playership.draw()
         for bullet in playership.bullets:
-            bullet.draw()
-            bullet.move()
             for enemy in enemies:
                 if detect_colision(bullet, enemy):
                     enemy.alive = False
+                    bullet.hit = True
+                    break
+        enemies[:] = [enemy for enemy in enemies if enemy.alive]
+        playership.bullets[:] = [bullet for bullet in playership.bullets if bullet.coordY > 0 and not bullet.hit]
         for enemy in enemies:
-            if enemy.alive:
-                enemy.move()
-                enemy.draw()
-        playership.bullets = [bullet for bullet in playership.bullets if bullet.coordY > 0]
+            enemy.move()
+            enemy.draw()
+            enemy.shoot()
+        for ebulet in Enemy.enemy_bullets:
+            ebulet.move()
+            ebulet.draw()
+        for bulet in playership.bullets:
+            bulet.move()
+            bulet.draw()
         pygame.display.update()
+        clock.tick(60)
 
 main()
